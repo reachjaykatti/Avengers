@@ -33,30 +33,95 @@ app.use('/public', express.static(path.join(__dirname, 'public')));
 app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 app.use(express.json({ limit: '2mb' }));
 
-// Capture previous URL (for Back link)
+
+// Capture previous URL (same-origin only) for Back link
 app.use((req, res, next) => {
-  res.locals.prevUrl = req.get('Referer') || '';
+  const ref = req.get('Referer') || '';
+  let sameOriginRef = '';
+  try {
+    const r = new URL(ref);
+    if (r.origin === `${req.protocol}://${req.get('host')}`) {
+      sameOriginRef = r.pathname + r.search + r.hash;
+    }
+  } catch (e) { /* ignore */ }
+  res.locals.prevUrl = sameOriginRef;
   next();
 });
 
-// Sessions
+// --- BEGIN: Session + No-Cache Setup (AFTER) ---
 const SQLiteStore = SQLiteStoreFactory(session);
-app.use(session(sessionConfig(SQLiteStore)));
+
+// Create a persistent SQLite session store that we can control here
+const sessionStore = new SQLiteStore({
+  // Store sessions under ./data/sessions.sqlite (create if not exists)
+  dir: path.join(__dirname, 'data'),
+  db: 'sessions.sqlite',
+  table: 'sessions'
+});
+
+
+app.use(session({
+  store: sessionStore,
+  secret: process.env.SESSION_SECRET || 'dev_secret_change_me',
+  resave: false,
+  saveUninitialized: false,
+
+  // IMPORTANT: Make it a session-only cookie (deleted when browser closes).
+  // Do NOT set maxAge. Let the browser treat it as a session cookie.
+  cookie: {
+    httpOnly: true,
+    sameSite: 'lax',
+    // set secure: true only when you serve via HTTPS
+    secure: false
+  }
+}));
+
+
+// OPTIONAL: Clear all sessions on server start so everyone must login again.
+// Set RESET_SESSIONS_ON_START=true in your .env for this behavior.
+if ((process.env.RESET_SESSIONS_ON_START || 'true').toLowerCase() === 'true') {
+  sessionStore.clear(err => {
+    if (err) {
+      console.error('Failed to clear sessions at startup:', err);
+    } else {
+      console.log('All sessions cleared on server start (RESET_SESSIONS_ON_START=true).');
+    }
+  });
+}
 
 // DB init (and bootstrap admin if needed)
 await initDb();
 
-// Inject user into views
+// No-cache headers to avoid stale pages showing up after restart
 app.use((req, res, next) => {
-  res.locals.currentUser = req.session.user || null;
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+  res.set('Surrogate-Control', 'no-store');
   next();
 });
 
-// Routes
-app.get('/', (req, res) => {
-  if (!req.session.user) return res.redirect('/login');
-  return res.redirect('/dashboard');
+
+// Inject user into views (compatible without nullish operator)
+app.use((req, res, next) => {
+  res.locals.currentUser = (req.session && req.session.user) ? req.session.user : null;
+  next();
 });
+
+// Simple request logger to trace 404s and verify paths
+app.use((req, res, next) => {
+  console.log('[REQ]', req.method, req.path);
+  next();
+});
+app.use((req, res, next) => { console.log('[REQ]', req.method, req.path); next(); });
+// Routes
+// Always show Login first when you hit the root.
+// (Logged-in users can still go to /dashboard via nav)
+app.get('/', (req, res) => {
+  return res.redirect('/login');
+});
+// --- END: Session + No-Cache Setup (AFTER) ---
+
 app.use('/', authRoutes);
 app.use('/admin', ensureAuthenticated, adminRoutes);
 app.use('/series', ensureAuthenticated, seriesRoutes);
