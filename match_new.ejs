@@ -1,0 +1,53 @@
+
+<%- include('../partials/head', {title}) %>
+<h1>New Match in <%= series.name %></h1>
+
+<div class="card">
+  <!-- REAL FORM TAG: clicking "Create Match" will submit -->
+  <form method="post"
+        action="/admin/series/<%= series.id %>/matches/new"
+        class="form"
+        data-ist-form="1">
+
+    <label>Match Name
+      <input name="name" required />
+    </label>
+
+    <label>Sport
+      <input name="sport" required placeholder="cricket|football|kabaddi" />
+    </label>
+
+    <label>Team A
+      <input name="team_a" required />
+    </label>
+
+    <label>Team B
+      <input name="team_b" required />
+    </label>
+
+    <!-- IST helper (client will convert IST → UTC if UTC blank) -->
+    <label>Start Time (IST) — format: YYYY-MM-DD HH:mm
+      <input name="start_time_ist" placeholder="2025-12-31 20:00" />
+    </label>
+
+    <!-- UTC ISO field (optional; auto-filled from IST if provided) -->
+    <label>Start Time (UTC, ISO) — e.g., 2025-12-31T14:30:00Z
+      <input name="start_time_utc" />
+    </label>
+
+    <label>Cutoff Minutes Before
+      <input name="cutoff_minutes_before" type="number" value="30" />
+    </label>
+
+    <label>Entry Points
+      <input name="entry_points" type="number" value="50" />
+    </label>
+
+    <div class="toolbar">
+      <button class="btn btn-primary" type="submit">Create Match</button>
+      <span style="color:var(--muted)">If IST is filled and UTC is empty, UTC will be auto-computed on submit.</span>
+    </div>
+  </form>
+</div>
+
+<%- include('../partials/foot') %>

@@ -1,0 +1,120 @@
+
+
+<%- include('../partials/head', {title}) %>
+
+<h1>Match Admin — <%= match.name %></h1>
+<a class="btn btn-link js-back"
+   href="<%= prevUrl || ('/admin/series/' + series.id + '/matches') %>"
+   data-fallback="/admin/series/<%= series.id %>/matches">← Back to Matches</a>
+
+<div class="card" style="margin-top:.5rem;">
+  <div><strong>Series:</strong> <%= series.name %></div>
+  <div><strong>Teams:</strong> <%= match.team_a %> vs <%= match.team_b %></div>
+  <div><strong>Start (UTC):</strong> <%= match.start_time_utc %></div>
+  <div><strong>Entry Points:</strong> <%= match.entry_points %></div>
+  <div><strong>Status:</strong> <%= match.status %></div>
+</div>
+
+<%
+  var aSide = (preds || []).filter(function(p){ return p.predicted_team === 'A'; });
+  var bSide = (preds || []).filter(function(p){ return p.predicted_team === 'B'; });
+  var membersCountVal = (typeof membersCount === 'number') ? membersCount : 0;
+  var missed = Math.max(0, membersCountVal - (preds ? preds.length : 0));
+  var entry = match.entry_points;
+  var aCount = aSide.length;
+  var bCount = bSide.length;
+  var potIfA = (bCount + missed) * entry;
+  var potIfB = (aCount + missed) * entry;
+  var perA = aCount ? (potIfA / aCount) : 0;
+  var perB = bCount ? (potIfB / bCount) : 0;
+%>
+
+<h2>Declarations</h2>
+<div class="grid" style="grid-template-columns:1fr 1fr; gap:1rem;">
+  <div class="card">
+    <h3><%= match.team_a %> — Declared members</h3>
+    <ul>
+      <% if (aSide.length) { %>
+        <% aSide.map(function(p){ return p.display_name; })
+                .sort(function(x,y){ return x.localeCompare(y); })
+                .forEach(function(name){ %>
+          <li><%= name %></li>
+        <% }) %>
+      <% } else { %>
+        <li class="text-muted">No declarations yet.</li>
+      <% } %>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3><%= match.team_b %> — Declared members</h3>
+    <ul>
+      <% if (bSide.length) { %>
+        <% bSide.map(function(p){ return p.display_name; })
+                .sort(function(x,y){ return x.localeCompare(y); })
+                .forEach(function(name){ %>
+          <li><%= name %></li>
+        <% }) %>
+      <% } else { %>
+        <li class="text-muted">No declarations yet.</li>
+      <% } %>
+    </ul>
+  </div>
+</div>
+
+<h2>Probable Winnings</h2>
+<div class="grid" style="grid-template-columns:1fr 1fr; gap:1rem;">
+  <div class="card">
+    <h3>If <%= match.team_a %> wins</h3>
+    <div>Winners: <strong><%= aCount %></strong></div>
+    <div>Losers: <strong><%= bCount + missed %></strong></div>
+    <div>Total Pot: <strong><%= potIfA %></strong></div>
+    <div>Per Winner: <strong><%= perA.toFixed ? perA.toFixed(2) : perA %></strong></div>
+  </div>
+
+  <div class="card">
+    <h3>If <%= match.team_b %> wins</h3>
+    <div>Winners: <strong><%= bCount %></strong></div>
+    <div>Losers: <strong><%= aCount + missed %></strong></div>
+    <div>Total Pot: <strong><%= potIfB %></strong></div>
+    <div>Per Winner: <strong><%= perB.toFixed ? perB.toFixed(2) : perB %></strong></div>
+  </div>
+</div>
+
+<div class="chip"><span class="dot dot-info"></span> Members in series: <strong><%= membersCountVal %></strong></div>
+
+<h2>Actions</h2>
+<div class="grid" style="gap:.5rem">
+  <!-- Declare Winner A -->
+  <form method="POST" action="/admin/matches/<%= match.id %>/declare" class="js-confirm-double"
+        data-confirm1="Declare winner: <%= match.team_a %>?"
+        data-confirm2="This will write points to ledger. Proceed?">
+    <input type="hidden" name="winner" value="A" />
+    <button type="submit" class="btn btn-primary">Declare Winner <%= match.team_a %></button>
+  </form>
+
+  <!-- Declare Winner B -->
+  <form method="POST" action="/admin/matches/<%= match.id %>/declare" class="js-confirm-double"
+        data-confirm1="Declare winner: <%= match.team_b %>?"
+        data-confirm2="This will write points to ledger. Proceed?">
+    <input type="hidden" name="winner" value="B" />
+    <button type="submit" class="btn btn-primary">Declare Winner <%= match.team_b %></button>
+  </form>
+
+  <!-- Mark Washed Out -->
+  <form method="POST" action="/admin/matches/<%= match.id %>/declare" class="js-confirm-double"
+        data-confirm1="Mark match as Washed Out?"
+        data-confirm2="No points will be written. Confirm?">
+    <input type="hidden" name="washed_out" value="1" />
+    <button type="submit" class="btn btn-warning">Mark Washed Out</button>
+  </form>
+
+  <!-- Reset Ledger -->
+  <form method="POST" action="/admin/matches/<%= match.id %>/reset-ledger" class="js-confirm-double"
+        data-confirm1="Reset points ledger for this match?"
+        data-confirm2="This will delete points entries and reopen scheduling. Proceed?">
+    <button type="submit" class="btn btn-danger">Reset Ledger</button>
+  </form>
+</div>
+
+<%- include('../partials/foot') %>

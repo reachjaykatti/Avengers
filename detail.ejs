@@ -1,0 +1,81 @@
+
+<%- include('../partials/head', {title}) %>
+
+<h1><%= series.name %></h1>
+
+<h2>Matches</h2>
+
+<% matches.forEach(m => { %>
+  <div class="card" id="match_<%= m.id %>" data-cutoff="<%= m.cutoffUtcIso %>">
+    <div class="card-title"><%= m.name %></div>
+    <div class="chips">
+      <div class="chip"><span class="dot dot-info"></span> <strong><%= m.team_a %></strong> vs <strong><%= m.team_b %></strong></div>
+      <div class="chip"><span class="dot dot-info"></span> Start (IST): <%= m.startIstStr %></div>
+      <div class="chip"><span class="dot dot-warn"></span> Cutoff (IST): <%= m.cutoffIstStr %></div>
+      <div class="chip"><span class="dot dot-ok"></span> Entry: <%= m.entry_points %></div>
+      <div class="chip"><span class="dot dot-info"></span> Status: <span class="badge <%= m.status %>"><%= m.status %></span></div>
+      <div class="chip countdown"><span class="dot dot-info"></span> Time left: <strong id="left_<%= m.id %>">—</strong></div>
+    </div>
+
+    <% if (m.myPred) { %>
+      <p style="margin-top:.5rem;color:var(--muted)">
+        You picked: <strong><%= m.myPred.predicted_team === 'A' ? m.team_a : m.team_b %></strong>
+        at <%= m.myPred.predicted_at_utc %>
+      </p>
+    <% } %>
+
+    <div class="toolbar">
+      /series/<%= series.id %>/matches/<%= m.id %>View Details</a>
+    </div>
+
+    <% if (!m.lockedForPrediction) { %>
+      <div class="toolbar js-declare-area" id="decl_<%= m.id %>">
+        /series/<%= series.id %>/matches/<%= m.id %>/predict
+          <input type="hidden" name="team" value="A" />
+          <button class="btn btn-primary js-declare" data-form="formA_<%= m.id %>" data-teamname="<%= m.team_a %>">Declare: <%= m.team_a %></button>
+        </form>
+
+        /series/<%= series.id %>/matches/<%= m.id %>/predict
+          <input type="hidden" name="team" value="B" />
+          <button class="btn btn-primary js-declare" data-form="formB_<%= m.id %>" data-teamname="<%= m.team_b %>">Declare: <%= m.team_b %></button>
+        </form>
+      </div>
+    <% } else { %>
+      <p style="margin-top:.5rem;color:var(--muted)">Declaration locked (cutoff passed or match started).</p>
+    <% } %>
+  </div>
+<% }) %>
+
+<script>
+  // Simple countdown to cutoff (UTC ISO -> local)
+  (function(){
+    function fmt(ms){
+      if (ms <= 0) return '0s';
+      const s = Math.floor(ms/1000);
+      const d = Math.floor(s/86400);
+      const h = Math.floor((s%86400)/3600);
+      const m = Math.floor((s%3600)/60);
+      const ss= s%60;
+      return (d? d+'d ':'') + (h? h+'h ':'') + (m? m+'m ':'') + ss+'s';
+    }
+    function tick(){
+      document.querySelectorAll('[data-cutoff]').forEach(function(card){
+        const iso = card.getAttribute('data-cutoff');
+        const leftEl = card.querySelector('.countdown strong');
+        if (!iso || !leftEl) return;
+        const left = new Date(iso).getTime() - Date.now();
+        leftEl.textContent = fmt(left);
+
+        // auto-lock declare buttons when time ends
+        if (left <= 0) {
+          const decl = card.querySelector('.js-declare-area');
+          if (decl) decl.innerHTML = '<p style="color:var(--muted)">Declaration locked (cutoff passed).</p>';
+        }
+      });
+    }
+    tick();
+    setInterval(tick, 1000);
+  })();
+</script>
+
+<%- include('../partials/foot') %>

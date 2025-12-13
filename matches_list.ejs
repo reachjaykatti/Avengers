@@ -1,0 +1,64 @@
+
+
+<%- include('../partials/head', {title}) %>
+
+<h1>Matches — <%= series.name %></h1>
+<a class="btn btn-link js-back"
+   href="<%= prevUrl || ('/series/' + series.id) %>"
+   data-fallback="/series/<%= series.id %>">← Back</a>
+
+<table class="table">
+  <tr>
+    <th>Name</th>
+    <th>Teams</th>
+    <th>Start (IST)</th>
+    <th>Entry</th>
+    <th>Status</th>
+    <th>Time Left</th>
+    <th>Actions</th>
+  </tr>
+
+  <% matches.forEach(function(m) { %>
+    <tr>
+      <td><%= m.name %></td>
+      <td><%= m.team_a %> vs <%= m.team_b %></td>
+      <td><%= m.start_time_ist %></td>
+      <td><%= m.entry_points %></td>
+      <td><%= m.status %></td>
+      <td><%= m.time_left %></td>
+      <td style="white-space:nowrap;">
+        <!-- Proper anchor for View Details -->
+        <a class="btn btn-link" href="/series/<%= series.id %>/matches/<%= m.id %>">View Details</a>
+
+        <% if (m.user_has_predicted) { %>
+          <span class="chip"><span class="dot dot-ok"></span>
+            Declared: <strong><%= m.user_predicted_name %></strong>
+          </span>
+        <% } else if (!m.locked && m.status === 'scheduled') { %>
+          <!-- Predict forms: POST 'A' or 'B' with double confirmation -->
+          <form class="inline js-confirm-double"
+                method="POST"
+                action="/series/<%= series.id %>/matches/<%= m.id %>/predict"
+                data-confirm1="Confirm your prediction: <%= m.team_a %>?"
+                data-confirm2="Final confirmation: <%= m.team_a %>?">
+            <input type="hidden" name="team" value="A" />
+            <button class="btn" type="submit">Predict <%= m.team_a %></button>
+          </form>
+
+          <form class="inline js-confirm-double"
+                method="POST"
+                action="/series/<%= series.id %>/matches/<%= m.id %>/predict"
+                data-confirm1="Confirm your prediction: <%= m.team_b %>?"
+                data-confirm2="Final confirmation: <%= m.team_b %>?">
+            <input type="hidden" name="team" value="B" />
+            <button class="btn" type="submit">Predict <%= m.team_b %></button>
+          </form>
+        <% } else { %>
+          <span class="text-muted">Prediction closed</span>
+        <% } %>
+      </td>
+    </tr>
+  <% }) %>
+</table>
+
+<%- include('../partials/foot') %>
