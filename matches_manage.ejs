@@ -1,29 +1,48 @@
 
 <%- include('../partials/head', {title}) %>
+
 <h1>Manage Matches — <%= series.name %></h1>
-<button type="button" class="btn btn-link" onclick="history.back()">← Back</button>
+<a class="btn btn-link js-back" data-fallback="/admin">← Back</a>
 
 <div class="grid" style="margin: 1rem 0;">
   <div>
     <a class="btn" href="/admin/series/<%= series.id %>/matches/new">+ New Match</a>
-    <a class="btn" href="/admin/series/<%= series.id %>/matches/bulk" style="margin-left: .5rem;">Bulk Import</a>
+    <a class="btn" href="/admin/series/<%= series.id %>/matches/bulk">Bulk Import</a>
   </div>
 </div>
 
 <table class="table">
-  <tr><th>Name</th><th>Teams</th><th>Start (UTC)</th><th>Entry</th><th>Status</th><th>Actions</th></tr>
-  <% matches.forEach(m => { %>
+  <tr>
+    <th style="width:28px;">&nbsp;</th> <!-- Admin dot -->
+    <th>Name</th>
+    <th>Teams</th>
+    <th>Start (IST)</th>
+    <th>Cutoff (IST)</th>
+    <th>Time left until cutoff</th>
+    <th>Entry</th>
+    <th>Status</th>
+    <th>Actions</th>
+  </tr>
+
+  <% matches.forEach(function(m){ %>
     <tr>
+      <td>
+        <span class="status-dot <%= m.adminDeclared ? 'status-green' : 'status-red' %>"
+              title="<%= m.adminDeclared ? 'Admin has declared' : 'Admin has not declared' %>"></span>
+      </td>
       <td><%= m.name %></td>
       <td><%= m.team_a %> vs <%= m.team_b %></td>
-      <td><%= m.start_time_utc %></td>
+      <td><%= m.startIstStr %></td>
+      <td><%= m.cutoffIstStr %></td>
+      <td><%= m.timeLeftLabel %></td>
       <td><%= m.entry_points %></td>
       <td><%= m.status %></td>
-      <td>
+      <td style="white-space:nowrap;">
         <a class="btn" href="/admin/matches/<%= m.id %>/edit">Edit</a>
-        <a class="btn" href="/admin/matches/<%= m.id %>">Declare</a>
+        <a class="btn" href="/admin/matches/<%= m.id %>">Admin</a>
       </td>
     </tr>
   <% }) %>
 </table>
+
 <%- include('../partials/foot') %>

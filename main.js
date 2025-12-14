@@ -141,3 +141,40 @@ document.addEventListener('submit', function (e) {
     return;
   }
 });
+
+// === Smart Back Button handler =============================================
+// Usage: <a href="<%= prevUrl || '/fallback' %>" class="btn btn-link js-back" data-fallback="/fallback">← Back</a>
+// - If there is a same-origin referrer and history length > 1, it will history.back().
+// - Otherwise, it will navigate to data-fallback (or href) safely.
+
+(function () {
+  function sameOrigin(url) {
+    try {
+      var u = new URL(url, window.location.origin);
+      return u.origin === window.location.origin;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  document.addEventListener('click', function (e) {
+    var a = e.target;
+    if (a && a.closest) a = a.closest('a.js-back');
+    if (!a) return;
+
+    // Prevent default navigation; we decide where to go
+    e.preventDefault();
+
+    var fallback = a.getAttribute('data-fallback') || a.getAttribute('href') || '/';
+    var ref = document.referrer;
+
+    // If there is a valid same-origin previous page and we have some history, go back
+    if (ref && sameOrigin(ref) && window.history.length > 1) {
+      window.history.back();
+      return;
+    }
+
+    // Otherwise, go to the explicit fallback
+    window.location.href = fallback;
+  });
+})();

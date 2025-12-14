@@ -18,9 +18,17 @@ const router = express.Router();
 router.use(ensureAdmin);
 
 // Admin home
+
 router.get('/', async (req, res) => {
   const db = await getDb();
-  const series = await db.all('SELECT * FROM series ORDER BY created_at DESC');
+  const rawSeries = await db.all('SELECT * FROM series ORDER BY created_at DESC');
+
+  const series = rawSeries.map(function (s) {
+    const startIst = s.start_date_utc ? moment.tz(s.start_date_utc, 'UTC').tz('Asia/Kolkata').format('YYYY-MM-DD HH:mm') : '';
+    const endIst   = s.end_date_utc   ? moment.tz(s.end_date_utc,   'UTC').tz('Asia/Kolkata').format('YYYY-MM-DD HH:mm') : '';
+    return { ...s, startIst, endIst };
+  });
+
   res.render('admin/home', { title: 'Admin', series });
 });
 
@@ -103,12 +111,75 @@ router.post('/series/:id/delete', async (req, res) => {
 });
 
 // Matches: manage/create/edit
+
+
+
+// === Admin: Manage Matches (series-wise) with IST/Cutoff + Admin declared dot ===
 router.get('/series/:id/matches', async (req, res) => {
   const db = await getDb();
   const series = await db.get('SELECT * FROM series WHERE id = ?', [req.params.id]);
-  const matches = await db.all('SELECT * FROM matches WHERE series_id = ? ORDER BY start_time_utc ASC', [req.params.id]);
-  res.render('admin/matches_manage', { title: `Manage Matches - ${series.name}`, series, matches });
+  const rawMatches = await db.all('SELECT * FROM matches WHERE series_id = ? ORDER BY start_time_utc ASC', [req.params.id]);
+
+  const nowMillis = Date.now();
+
+  // Determine admin-as-player user id (prefer series.created_by, fallback to first is_admin=1)
+  let adminUserId = (series && series.created_by) ? series.created_by : null;
+  if (!adminUserId) {
+    const adm = await db.get('SELECT id FROM users WHERE is_admin = 1 ORDER BY id LIMIT 1');
+    adminUserId = adm ? adm.id : null;
+  }
+
+  // Build admin declared map
+  let adminDeclaredMap = {};
+  if (adminUserId && rawMatches.length > 0) {
+    const ids = rawMatches.map(m => m.id).join(',');
+    const aPreds = await db.all(
+      'SELECT match_id FROM predictions WHERE user_id = ? AND match_id IN (' + ids + ')',
+      [adminUserId]
+    );
+    for (let i = 0; i < aPreds.length; i++) {
+      adminDeclaredMap[aPreds[i].match_id] = true;
+    }
+  }
+
+  const matches = rawMatches.map(function (m) {
+    // Start (IST) — use imported moment, not require(...)
+    const startIstStr = moment.tz(m.start_time_utc, 'UTC').tz('Asia/Kolkata').format('YYYY-MM-DD HH:mm');
+
+    // Cutoff IST (start - cutoff)
+    const cutoffMinutes = (typeof m.cutoff_minutes_before === 'number' && !isNaN(m.cutoff_minutes_before)) ? m.cutoff_minutes_before : 30;
+    const startMillis   = new Date(m.start_time_utc).getTime();
+    const cutoffMillis  = startMillis - cutoffMinutes * 60 * 1000;
+    const cutoffIstStr  = moment.tz(cutoffMillis, 'UTC').tz('Asia/Kolkata').format('YYYY-MM-DD HH:mm');
+
+    // Time left label
+    let timeLeftLabel = '';
+    if (nowMillis >= cutoffMillis) {
+      timeLeftLabel = 'Cutoff closed';
+    } else {
+      const msLeft   = cutoffMillis - nowMillis;
+      const minsTotal = Math.floor(msLeft / (60 * 1000));
+      const hours     = Math.floor(minsTotal / 60);
+      const mins      = minsTotal % 60;
+      timeLeftLabel   = (hours > 0 ? (hours + 'h ') : '') + mins + 'm left';
+    }
+
+    return {
+      ...m,
+      startIstStr,
+      cutoffIstStr,
+      timeLeftLabel,
+      adminDeclared: adminDeclaredMap[m.id] ? true : false
+    };
+  });
+
+  res.render('admin/matches_manage', {
+    title: `Manage Matches - ${series.name}`,
+    series,
+    matches
+  });
 });
+
 router.get('/series/:id/matches/new', async (req, res) => {
   const db = await getDb();
   const series = await db.get('SELECT * FROM series WHERE id = ?', [req.params.id]);

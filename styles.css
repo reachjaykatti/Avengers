@@ -105,3 +105,16 @@ body[data-theme="light"] .table tr:hover td { background:#eef3fb; }
 .nav-link { padding:.25rem .5rem; border-radius:6px; border:1px solid transparent; }
 .nav-link:hover { border-color:var(--border); background:rgba(0,0,0,.05); }
 body[data-theme="light"] .nav-link:hover { background:#eef3fb; }
+
+
+/* Admin-as-player declaration dots */
+.status-dot {
+  display:inline-block;
+  width:14px;
+  height:14px;
+  border-radius:50%;
+  vertical-align:middle;
+  box-shadow: inset 0 0 0 2px rgba(0,0,0,0.06);
+}
+.status-green { background:#16a34a; } /* green */
+.status-red   { background:#dc2626; } /* red   */

@@ -1,5 +1,6 @@
 
 <%- include('../partials/head', {title}) %>
+
 <h1>Admin</h1>
 
 <div class="grid">
@@ -12,27 +13,49 @@
     <h2>Series</h2>
     <table class="table">
       <tr>
-        <th>Name</th><th>Dates</th><th>Members</th><th>Lock</th>
-        <th>Manage</th><th>Edit</th><th>Delete</th>
+        <th>Name</th>
+        <th>Dates (IST)</th>
+        <th>Members</th>
+        <th>Lock</th>
+        <th>Manage</th>
+        <th>Edit</th>
+        <th>Delete</th>
       </tr>
-      <% series.forEach(s => { %>
+
+      <% series.forEach(function(s){ %>
         <tr>
           <td><%= s.name %></td>
-          <td><%= s.start_date_utc %> → <%= s.end_date_utc || '-' %></td>
-          <td><a href="/admin/series/<%= s.id %>/members">Manage</a></td>
+
+          <!-- C1: Show Start/End in IST (computed in the route as startIst/endIst) -->
+          <td>
+            <%= (s.startIst && s.startIst.length) ? s.startIst : '—' %>
+            →
+            <%= (s.endIst && s.endIst.length) ? s.endIst : '—' %>
+          </td>
+
+          <!-- Keep your existing actions/links untouched -->
+          <td>
+            <a href="/admin/series/<%= s.id %>/members">Manage</a>
+          </td>
+
           <td>
             <% if (!s.is_locked) { %>
-              <form method="post" action="/admin/series/<%= s.id %>/lock" onsubmit="return confirm('Lock this series? No new members after lock.');">
+              <form method="post"
+                    action="/admin/series/<%= s.id %>/lock"
+                    onsubmit="return confirm('Lock this series? No new members after lock.');">
                 <button class="btn btn-warn" type="submit">Lock</button>
               </form>
             <% } else { %>
               <span class="badge started">Locked</span>
             <% } %>
           </td>
+
           <td><a class="btn" href="/admin/series/<%= s.id %>/matches">Manage Matches</a></td>
           <td><a class="btn" href="/admin/series/<%= s.id %>/edit">Edit</a></td>
+
           <td>
-            <form method="post" action="/admin/series/<%= s.id %>/delete"
+            <form method="post"
+                  action="/admin/series/<%= s.id %>/delete"
                   onsubmit="return confirm('Delete entire series (matches, members, and points ledgers)?');">
               <button class="btn btn-warn" type="submit">Delete</button>
             </form>

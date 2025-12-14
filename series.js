@@ -38,7 +38,8 @@ router.get('/:id', async (req, res) => {
 });
 
 /* ---------------------------
-   User: List Matches in a Series (IST time, time left, prediction state)
+   User: List Matches in a Series
+   (IST time, time left, user prediction state, ADMIN declared flag)
 ---------------------------- */
 router.get('/:id/matches', async (req, res) => {
   try {
@@ -69,6 +70,28 @@ router.get('/:id/matches', async (req, res) => {
         predByMatch[r.match_id] = r.predicted_team; // 'A' or 'B'
       }
     }
+
+    // --- ADMIN-AS-PLAYER declared flag -------------------------------------
+    // Prefer series.created_by as the "Admin-as-player"; fallback to first is_admin=1
+    let adminUserId = series && series.created_by ? series.created_by : null;
+    if (!adminUserId) {
+      const adm = await db.get('SELECT id FROM users WHERE is_admin = 1 ORDER BY id LIMIT 1');
+      adminUserId = adm ? adm.id : null;
+    }
+
+    // Map of match_id => true if Admin declared
+    let adminDeclaredMap = {};
+    if (adminUserId && matches.length > 0) {
+      const ids = matches.map(m => m.id).join(',');
+      const aPreds = await db.all(
+        'SELECT match_id FROM predictions WHERE user_id = ? AND match_id IN (' + ids + ')',
+        [adminUserId]
+      );
+      for (let i = 0; i < aPreds.length; i++) {
+        adminDeclaredMap[aPreds[i].match_id] = true;
+      }
+    }
+    // -----------------------------------------------------------------------
 
     // Build derived rows for the view
     const rows = matches.map(function (m) {
@@ -111,7 +134,10 @@ router.get('/:id/matches', async (req, res) => {
         locked: lockedForPrediction,
         user_predicted_code: userPredCode,
         user_predicted_name: userPredName,
-        user_has_predicted: userHasPredicted
+        user_has_predicted: userHasPredicted,
+
+        // NEW: show admin declared as green/red dot
+        admin_declared: adminDeclaredMap[m.id] ? true : false
       };
     });
 
@@ -128,7 +154,6 @@ router.get('/:id/matches', async (req, res) => {
 
 /* ---------------------------
    Submit/Update Prediction
-   (blocked after cutoff or if status != scheduled)
 ---------------------------- */
 router.post('/:id/matches/:matchId/predict', async (req, res) => {
   const db = await getDb();
@@ -163,9 +188,6 @@ router.post('/:id/matches/:matchId/predict', async (req, res) => {
 
 /* ---------------------------
    Match Detail (user)
-   - shows all declarations after cutoff or started
-   - shows probable points with team-wise names
-   - shows final result + my points after completion
 ---------------------------- */
 router.get('/:id/matches/:matchId', async (req, res) => {
   const db = await getDb();
